@@ -1,17 +1,15 @@
 """
 Daily AI Brief
 --------------
-Pulls AI signal from Reddit (subs + targeted searches) and a few canonical
-RSS sources. Summarizes the top picks with Claude Haiku 4.5 into specific
-content angles for an AI-systems consulting personal brand. Sends to Telegram.
+Pulls AI signal from a curated set of RSS sources, summarizes the top picks
+with Claude Haiku 4.5 into specific content angles for an AI-systems
+consulting personal brand, and sends the result to Telegram.
 """
 import os
 import re
 import sys
-import time
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from urllib.parse import quote_plus
 
 import feedparser
 import requests
@@ -32,23 +30,10 @@ RSS_FEEDS = [
     ("The Decoder",     "https://the-decoder.com/feed/"),
 ]
 
-REDDIT_SUBS = [
-    "artificial", "ChatGPT", "ClaudeAI", "LocalLLaMA", "AI_Agents",
-    "automation", "SaaS", "Entrepreneur", "smallbusiness", "marketing",
-]
-
-REDDIT_SEARCHES = [
-    "AI for business", "AI consulting", "AI automation",
-    "AI agency", "AI for small business", "AI agent",
-]
-
-LOOKBACK_HOURS    = 24
-TOP_N_STORIES     = 5
-MAX_ITEMS_TO_LLM  = 60
-MIN_REDDIT_SCORE  = 30
-MIN_SEARCH_SCORE  = 15
-MODEL             = "claude-haiku-4-5-20251001"
-REDDIT_USER_AGENT = "ai-brief/1.0 (personal content aggregator)"
+LOOKBACK_HOURS   = 24
+TOP_N_STORIES    = 5
+MAX_ITEMS_TO_LLM = 60
+MODEL            = "claude-haiku-4-5-20251001"
 
 
 # ============================================================================
@@ -74,90 +59,6 @@ def fetch_rss():
                 })
         except Exception as e:
             print(f"warn: RSS {source_name} failed — {e}", file=sys.stderr)
-    return out
-
-
-# ============================================================================
-# FETCH — Reddit (JSON API via OAuth)
-# ============================================================================
-
-def _reddit_token():
-    try:
-        r = requests.post(
-            "https://www.reddit.com/api/v1/access_token",
-            auth=(os.environ["REDDIT_CLIENT_ID"], os.environ["REDDIT_CLIENT_SECRET"]),
-            data={"grant_type": "client_credentials"},
-            headers={"User-Agent": REDDIT_USER_AGENT},
-            timeout=15,
-        )
-        r.raise_for_status()
-        return r.json()["access_token"]
-    except Exception as e:
-        print(f"warn: reddit OAuth failed — {e}", file=sys.stderr)
-        return None
-
-
-def fetch_reddit_subs(token):
-    if not token:
-        return []
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
-    out = []
-    headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"bearer {token}"}
-    for sub in REDDIT_SUBS:
-        url = f"https://oauth.reddit.com/r/{sub}/top.json?t=day&limit=15"
-        try:
-            r = requests.get(url, headers=headers, timeout=15)
-            r.raise_for_status()
-            for child in r.json().get("data", {}).get("children", []):
-                p = child.get("data", {})
-                if p.get("score", 0) < MIN_REDDIT_SCORE:
-                    continue
-                created = datetime.fromtimestamp(p.get("created_utc", 0), tz=timezone.utc)
-                if created < cutoff:
-                    continue
-                body = p.get("selftext", "") or p.get("url", "")
-                out.append({
-                    "title":   p.get("title", ""),
-                    "link":    f"https://reddit.com{p.get('permalink', '')}",
-                    "summary": _strip_html(body)[:500],
-                    "source":  f"r/{sub} ({p.get('score', 0)} upvotes, {p.get('num_comments', 0)} comments)",
-                    "score":   p.get("score", 0),
-                })
-            time.sleep(1.5)
-        except Exception as e:
-            print(f"warn: r/{sub} failed — {e}", file=sys.stderr)
-    return out
-
-
-def fetch_reddit_searches(token):
-    if not token:
-        return []
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
-    out = []
-    headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"bearer {token}"}
-    for query in REDDIT_SEARCHES:
-        url = f"https://oauth.reddit.com/search.json?q={quote_plus(query)}&sort=top&t=day&limit=10"
-        try:
-            r = requests.get(url, headers=headers, timeout=15)
-            r.raise_for_status()
-            for child in r.json().get("data", {}).get("children", []):
-                p = child.get("data", {})
-                if p.get("score", 0) < MIN_SEARCH_SCORE:
-                    continue
-                created = datetime.fromtimestamp(p.get("created_utc", 0), tz=timezone.utc)
-                if created < cutoff:
-                    continue
-                body = p.get("selftext", "") or p.get("url", "")
-                out.append({
-                    "title":   p.get("title", ""),
-                    "link":    f"https://reddit.com{p.get('permalink', '')}",
-                    "summary": _strip_html(body)[:500],
-                    "source":  f"Reddit search '{query}' ({p.get('score', 0)} upvotes)",
-                    "score":   p.get("score", 0),
-                })
-            time.sleep(1.5)
-        except Exception as e:
-            print(f"warn: Reddit search '{query}' failed — {e}", file=sys.stderr)
     return out
 
 
@@ -225,11 +126,10 @@ Their content blends four styles:
 
 Audience: business owners considering AI, and ambitious operators/builders learning to deliver AI services.
 
-Below are AI signals from the last {LOOKBACK_HOURS} hours across Reddit and AI publications. Pick the TOP {TOP_N_STORIES} most CONTENT-WORTHY for this brand. Prioritize, in order:
+Below are AI signals from the last {LOOKBACK_HOURS} hours across AI publications and developer feeds. Pick the TOP {TOP_N_STORIES} most CONTENT-WORTHY for this brand. Prioritize, in order:
 1. Stories with a clear "how I'd implement this for a business" angle
 2. Tools/techniques worth a build-along or teardown
 3. Real adoption stories or contrarian takes the herd is missing
-4. Reddit discussions showing what businesses are confused about
 
 Avoid: pure research papers without business application, recycled hype, generic "AI is changing everything" takes.
 
@@ -305,9 +205,6 @@ def main():
     print("fetching signals…")
     items = []
     items.extend(fetch_rss())
-    token = _reddit_token()
-    items.extend(fetch_reddit_subs(token))
-    items.extend(fetch_reddit_searches(token))
 
     items = dedupe(items)
     items.sort(key=lambda a: -a.get("score", 0))
