@@ -46,5 +46,6 @@ The cron is `0 11 * * *` — that is **11:00 UTC daily**. GitHub Actions cron is
 
 ## Customize
 
-- **Sources, model, lookback window, top-N**: edit the `CONFIG` block at the top of `main.py` (`RSS_FEEDS`, `LOOKBACK_HOURS`, `TOP_N_STORIES`, `MAX_ITEMS_TO_LLM`, `MODEL`).
+- **Sources, model, lookback window, story cap**: edit the `CONFIG` block at the top of `main.py` (`RSS_FEEDS`, `LOOKBACK_HOURS`, `MAX_STORIES`, `MAX_ITEMS_TO_LLM`, `MODEL`).
+- **ICP, story filter, brand voice**: those live inside the prompt in `summarize()`. The current build targets a solo marketing consultant ICP with auto-reject and auto-prioritize lists — adjust there if you change audience.
 - **Brand voice and output format**: edit the prompt inside `summarize()` in `main.py`. That is where the four content styles, audience description, prioritization order, and per-story output template live.

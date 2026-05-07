@@ -31,7 +31,7 @@ RSS_FEEDS = [
 ]
 
 LOOKBACK_HOURS   = 24
-TOP_N_STORIES    = 5
+MAX_STORIES      = 5
 MAX_ITEMS_TO_LLM = 60
 MODEL            = "claude-haiku-4-5-20251001"
 
@@ -116,37 +116,78 @@ def summarize(articles):
         for i, a in enumerate(articles)
     )
 
-    prompt = f"""You are a content strategist for an AI systems consultant who builds AI for businesses and teaches them how to use it.
+    prompt = f"""You are researching AI news for a SOLO MARKETING CONSULTANT earning $10K-$50K/month with an active online audience. Their goal: (a) implement AI in their own marketing and operations to free up time, and (b) productize AI workflows as offers they sell to their clients.
 
-Their content blends four styles:
-- DOCUMENTING the build (Daniel Dalen, Fin Kwong) — "week N building X"
-- EDUCATIONAL system-thinking (Dan Koe) — frameworks, principles, leverage
-- TESTIMONIAL and proof-driven (Soowei Goh) — client wins, case studies
-- BUILDER POV — "here's how I'd actually implement this for a client"
+ICP details:
+- Solo decision-maker, not a corporate team
+- Strong online presence — actively posts, runs an email list, has a paid offer
+- Niche bias: marketing consultants/coaches/course creators/agency owners and adjacent solo service providers
+- Already uses ChatGPT or Claude for surface tasks (drafting blog posts, email subject lines)
+- Has NOT systematized AI in their operations or productized AI as a client offer
+- Buys based on: operator credibility, specific implementation, ROI clarity
 
-Audience: business owners considering AI, and ambitious operators/builders learning to deliver AI services.
+A story qualifies ONLY if ALL are true:
+1. Implementable by a non-engineer in under 2 weeks
+2. Total tooling cost under $1,000/month
+3. Marketing or operations application is direct (not "could be applied to marketing")
+4. Has an obvious productized service angle ("you could sell this to your clients as ___")
+5. Doesn't require infrastructure (no servers, no ML pipelines, no fine-tuning)
 
-Below are AI signals from the last {LOOKBACK_HOURS} hours across AI publications and developer feeds. Pick the TOP {TOP_N_STORIES} most CONTENT-WORTHY for this brand. Prioritize, in order:
-1. Stories with a clear "how I'd implement this for a business" angle
-2. Tools/techniques worth a build-along or teardown
-3. Real adoption stories or contrarian takes the herd is missing
+AUTO-REJECT:
+- Frontier model research, benchmarks, or capability announcements (unless they unlock a specific marketer workflow)
+- Enterprise / Fortune 500 case studies
+- AI safety, policy, or regulation
+- Model comparisons (e.g. GPT-5 vs Claude 4.5)
+- Funding / M&A news
+- Technical infrastructure (vector DBs, RAG, fine-tuning, deployment)
+- Anything about "agents" framed as a developer concept rather than a business outcome
 
-Avoid: pure research papers without business application, recycled hype, generic "AI is changing everything" takes.
+AUTO-PRIORITIZE:
+- New AI features in tools the ICP already uses (HubSpot, Klaviyo, ActiveCampaign, Notion, Airtable, Make, Zapier, ConvertKit/Kit, Beehiiv, Buffer, Webflow, Framer)
+- Prompt patterns that change a marketing or ops workflow (voice cloning, brand voice files, customer research, ad copy frameworks)
+- Custom GPTs / Claude Projects with a specific business job
+- Voice/clone tech for content scaling (HeyGen, ElevenLabs, OpusClip)
+- Ad creative automation (Meta, Google, paid social)
+- AI for customer research, VOC mining, review analysis
+- Integration recipes (e.g. Claude + Zapier to do X)
+- Workflow case studies from solo operators
+- AI features in CRM/email tools that automate sales touchpoints
 
-For EACH of the {TOP_N_STORIES} stories, output in this EXACT format:
+BRAND VOICE — angles must sound like the operator, not a tech reporter or guru:
+- "Always grateful, never content" — Ambitious Underdog energy
+- Raw and real, no filter. Speak as a peer, not a teacher condescending down.
+- Direct, declarative sentences. No hedging.
+- No corporate-speak (no "leverage," "synergy," "optimize"). Use verbs ("use," "run," "ship").
+- Keep "I" or "we" present in opinionated takes.
+- Mid-level altitude: assume reader knows what ChatGPT is, not what a "system prompt" is.
+- WRONG: "How AI agents are revolutionizing the marketing operations stack."
+- RIGHT: "How a $97/mo Claude Project replaces three hires for a solo marketing consultant — and the prompt I'd build first."
 
-*[N]. [Punchy headline]*
-🔗 [link]
-*The signal:* 2 sentences max — what happened or what's being discussed.
-*Why it matters for AI consultants:* 1 sentence.
-*Content angle:* ONE specific deliverable. Pick a format and be concrete:
-   - Tweet/X post (give the actual hook line)
-   - Thread (give the premise + 1-line topic per post)
-   - Reel/Short premise (give the on-screen hook)
-   - YouTube long-form angle (give the title)
-   - Or testimonial-style framing if there's a client-win parallel
+Return between 3 and {MAX_STORIES} stories from the {LOOKBACK_HOURS}h signal pool below. If fewer than 3 qualify, return what you have and START the output with `*Pull was thin today.*` on its own line — DO NOT pad with off-target stories.
 
-Use Telegram markdown (single asterisks for bold; no #). Total output under 3500 characters. NO preamble, NO sign-off — start directly with story 1.
+For EACH qualifying story, output in this EXACT format (single asterisks for Telegram bold; no `#`; separate stories with `---` on its own line):
+
+🔥 *[STORY HEADLINE — written as a hook, not a tech-news title]*
+🔗 [URL]
+
+*THE SIGNAL* — what actually happened:
+[2-3 sentences, plain language, no jargon]
+
+*WHY IT MATTERS FOR YOU:*
+[2-3 sentences. Use "you" and "your clients." Show the implication for THEIR business or THEIR offer.]
+
+*THE PRODUCTIZED ANGLE:*
+[1-2 sentences answering: "What could you sell to your clients because of this?" Be specific — name the offer and a price point.]
+
+*CONTENT ANGLE* (pick ONE, the strongest):
+- Format: [LinkedIn post | X thread | IG Reel | YouTube long-form]
+- Hook: [Specific opening line — must work as a thumb-stopper]
+- Promise: [What the audience learns by the end]
+- Framework: [The 3-5 beats the content will hit]
+
+*SCRIPT-READY:* ✅  (or ⚠️ followed by what's missing)
+
+NO preamble, NO sign-off — start directly with the first story (or with `*Pull was thin today.*`).
 
 Signals:
 {article_block}
@@ -154,7 +195,7 @@ Signals:
 
     msg = client.messages.create(
         model=MODEL,
-        max_tokens=2200,
+        max_tokens=3500,
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text
