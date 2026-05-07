@@ -25,6 +25,11 @@ RSS_FEEDS = [
     ("Anthropic",       "https://www.anthropic.com/news/rss.xml"),
     ("MIT Tech Review", "https://www.technologyreview.com/topic/artificial-intelligence/feed"),
     ("VentureBeat AI",  "https://venturebeat.com/category/ai/feed/"),
+    ("TechCrunch AI",   "https://techcrunch.com/category/artificial-intelligence/feed/"),
+    ("The Verge AI",    "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"),
+    ("Hacker News",     "https://hnrss.org/frontpage"),
+    ("Simon Willison",  "https://simonwillison.net/atom/everything/"),
+    ("The Decoder",     "https://the-decoder.com/feed/"),
 ]
 
 REDDIT_SUBS = [
@@ -73,16 +78,35 @@ def fetch_rss():
 
 
 # ============================================================================
-# FETCH — Reddit (JSON API)
+# FETCH — Reddit (JSON API via OAuth)
 # ============================================================================
 
-def fetch_reddit_subs():
+def _reddit_token():
+    try:
+        r = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(os.environ["REDDIT_CLIENT_ID"], os.environ["REDDIT_CLIENT_SECRET"]),
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": REDDIT_USER_AGENT},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return r.json()["access_token"]
+    except Exception as e:
+        print(f"warn: reddit OAuth failed — {e}", file=sys.stderr)
+        return None
+
+
+def fetch_reddit_subs(token):
+    if not token:
+        return []
     cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
     out = []
+    headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"bearer {token}"}
     for sub in REDDIT_SUBS:
-        url = f"https://www.reddit.com/r/{sub}/top.json?t=day&limit=15"
+        url = f"https://oauth.reddit.com/r/{sub}/top.json?t=day&limit=15"
         try:
-            r = requests.get(url, headers={"User-Agent": REDDIT_USER_AGENT}, timeout=15)
+            r = requests.get(url, headers=headers, timeout=15)
             r.raise_for_status()
             for child in r.json().get("data", {}).get("children", []):
                 p = child.get("data", {})
@@ -105,13 +129,16 @@ def fetch_reddit_subs():
     return out
 
 
-def fetch_reddit_searches():
+def fetch_reddit_searches(token):
+    if not token:
+        return []
     cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
     out = []
+    headers = {"User-Agent": REDDIT_USER_AGENT, "Authorization": f"bearer {token}"}
     for query in REDDIT_SEARCHES:
-        url = f"https://www.reddit.com/search.json?q={quote_plus(query)}&sort=top&t=day&limit=10"
+        url = f"https://oauth.reddit.com/search.json?q={quote_plus(query)}&sort=top&t=day&limit=10"
         try:
-            r = requests.get(url, headers={"User-Agent": REDDIT_USER_AGENT}, timeout=15)
+            r = requests.get(url, headers=headers, timeout=15)
             r.raise_for_status()
             for child in r.json().get("data", {}).get("children", []):
                 p = child.get("data", {})
@@ -278,8 +305,9 @@ def main():
     print("fetching signals…")
     items = []
     items.extend(fetch_rss())
-    items.extend(fetch_reddit_subs())
-    items.extend(fetch_reddit_searches())
+    token = _reddit_token()
+    items.extend(fetch_reddit_subs(token))
+    items.extend(fetch_reddit_searches(token))
 
     items = dedupe(items)
     items.sort(key=lambda a: -a.get("score", 0))

@@ -15,7 +15,20 @@ A once-a-day summary of AI signal from Reddit and a small set of RSS feeds, dist
    ```
    Replace `<TOKEN>` with your bot token. Find `"chat":{"id":...}` in the JSON response — that number is `TELEGRAM_CHAT_ID`.
 
-### 2. Push to a private GitHub repo
+### 2. Create a Reddit script app
+
+Reddit blocks unauthenticated requests from cloud-IP ranges (so the script will return zero Reddit signal without this).
+
+1. Visit [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps).
+2. Scroll to the bottom and click **"are you a developer? create an app..."** (or "create another app...").
+3. Fill in:
+   - **name**: anything (e.g. `ai-brief`)
+   - select **script**
+   - **redirect uri**: `http://localhost:8080` (required field, not actually used)
+4. Click **"create app"**.
+5. The 14-character string just under the app name is `REDDIT_CLIENT_ID`. The longer string next to **"secret"** is `REDDIT_CLIENT_SECRET`.
+
+### 3. Push to a private GitHub repo
 
 Create an empty private repo on GitHub, then from this project root:
 
@@ -28,19 +41,21 @@ git remote add origin git@github.com:<you>/<repo>.git
 git push -u origin main
 ```
 
-### 3. Add repository secrets
+### 4. Add repository secrets
 
-In the GitHub repo, go to **Settings → Secrets and variables → Actions → New repository secret** and add three secrets:
+In the GitHub repo, go to **Settings → Secrets and variables → Actions → New repository secret** and add five secrets:
 
 - `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com/)
 - `TELEGRAM_BOT_TOKEN` — from step 1
 - `TELEGRAM_CHAT_ID` — from step 1
+- `REDDIT_CLIENT_ID` — from step 2
+- `REDDIT_CLIENT_SECRET` — from step 2
 
-### 4. Run it manually to test
+### 5. Run it manually to test
 
 Go to the **Actions** tab → **Daily AI Brief** workflow → **Run workflow**. Within a minute or two, the brief should arrive in your Telegram chat. Check the Actions log if it doesn't.
 
-### 5. Scheduling note (UTC + DST)
+### 6. Scheduling note (UTC + DST)
 
 The cron is `0 11 * * *` — that is **11:00 UTC daily**. GitHub Actions cron is always UTC, so the local delivery time drifts by one hour twice a year when daylight saving time changes. Adjust the cron in `.github/workflows/daily-ai-brief.yml` if you want to lock to a local clock time.
 
