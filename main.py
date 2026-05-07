@@ -20,6 +20,7 @@ from anthropic import Anthropic
 # ============================================================================
 
 RSS_FEEDS = [
+    # General AI signal
     ("Anthropic",       "https://www.anthropic.com/news/rss.xml"),
     ("MIT Tech Review", "https://www.technologyreview.com/topic/artificial-intelligence/feed"),
     ("VentureBeat AI",  "https://venturebeat.com/category/ai/feed/"),
@@ -28,6 +29,13 @@ RSS_FEEDS = [
     ("Hacker News",     "https://hnrss.org/frontpage"),
     ("Simon Willison",  "https://simonwillison.net/atom/everything/"),
     ("The Decoder",     "https://the-decoder.com/feed/"),
+    # ICP-aligned: tool blogs + marketing/operator AI digests
+    ("Zapier Blog",     "https://zapier.com/blog/feeds/latest/"),
+    ("HubSpot Marketing", "https://blog.hubspot.com/marketing/rss.xml"),
+    ("Buffer",          "https://buffer.com/resources/feed/"),
+    ("Beehiiv Blog",    "https://blog.beehiiv.com/feed"),
+    ("Ben's Bites",     "https://bensbites.beehiiv.com/feed"),
+    ("Marketing AI Institute", "https://www.marketingaiinstitute.com/blog/rss.xml"),
 ]
 
 LOOKBACK_HOURS   = 24
